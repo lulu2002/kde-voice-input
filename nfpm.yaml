@@ -4,7 +4,7 @@ platform: linux
 version: ${VERSION}
 section: utils
 maintainer: lulu2002 <lose9749@gmail.com>
-homepage: https://github.com/lulu2002/deepgram-dictate
+homepage: https://github.com/lulu2002/kde-voice-input
 license: MIT
 description: |
   KDE Wayland voice dictation popup powered by Deepgram.
