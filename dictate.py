@@ -82,6 +82,14 @@ def find_ydotool_socket():
     return None
 
 
+def run_cmd(cmd, **kw):
+    """跑外部指令;指令不存在時回傳 None 而不是炸掉(setup 不應因缺某工具而中斷)。"""
+    try:
+        return subprocess.run(cmd, check=False, **kw)
+    except FileNotFoundError:
+        return None
+
+
 def register_kwin_rule():
     """KWin 視窗規則:記住 popup 位置(Wayland 下 app 無法自己定位)。"""
     import uuid
@@ -90,9 +98,10 @@ def register_kwin_rule():
     if rules_path.exists() and APP_ID in rules_path.read_text(encoding="utf-8", errors="ignore"):
         print("KWin 視窗規則已存在(記住位置)")
         return
-    existing = subprocess.run(
+    r = run_cmd(
         ["kreadconfig6", "--file", "kwinrulesrc", "--group", "General", "--key", "rules"],
-        capture_output=True, text=True, check=False).stdout.strip()
+        capture_output=True, text=True)
+    existing = r.stdout.strip() if r else ""
     rid = str(uuid.uuid4())
     entries = {
         "Description": f"{APP_ID}: remember position",
@@ -103,22 +112,23 @@ def register_kwin_rule():
     }
     ok = True
     for k, v in entries.items():
-        r = subprocess.run(
-            ["kwriteconfig6", "--file", "kwinrulesrc", "--group", rid, "--key", k, v],
-            check=False)
-        ok = ok and r.returncode == 0
+        r = run_cmd(
+            ["kwriteconfig6", "--file", "kwinrulesrc", "--group", rid, "--key", k, v])
+        ok = ok and r is not None and r.returncode == 0
     if not ok:
         print("找不到 kwriteconfig6,略過 KWin 視窗規則(位置不會被記住)")
         return
     new_rules = f"{existing},{rid}" if existing else rid
-    subprocess.run(
+    run_cmd(
         ["kwriteconfig6", "--file", "kwinrulesrc", "--group", "General",
-         "--key", "rules", new_rules], check=False)
-    for qdbus in ("qdbus6", "qdbus"):
-        r = subprocess.run(
-            [qdbus, "org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure"],
-            capture_output=True, check=False)
-        if r.returncode == 0:
+         "--key", "rules", new_rules])
+    for cmd in (
+        ["busctl", "--user", "call", "org.kde.KWin", "/KWin", "org.kde.KWin", "reconfigure"],
+        ["qdbus6", "org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure"],
+        ["qdbus", "org.kde.KWin", "/KWin", "org.kde.KWin.reconfigure"],
+    ):
+        r = run_cmd(cmd, capture_output=True)
+        if r and r.returncode == 0:
             break
     print("已加入 KWin 視窗規則:popup 位置移動後會被記住")
 
@@ -137,21 +147,21 @@ def setup():
             CONFIG_PATH.write_text(text, encoding="utf-8")
             print("API key 已寫入設定檔。")
 
-    existing = subprocess.run(
+    r = run_cmd(
         ["kreadconfig6", "--file", "kglobalshortcutsrc",
          "--group", "services", "--group", f"{APP_ID}.desktop", "--key", "_launch"],
-        capture_output=True, text=True, check=False).stdout.strip()
+        capture_output=True, text=True)
+    existing = r.stdout.strip() if r else ""
     if existing:
         print(f"全域快捷鍵已存在:{existing}")
     else:
-        r = subprocess.run(
+        r = run_cmd(
             ["kwriteconfig6", "--file", "kglobalshortcutsrc",
              "--group", "services", "--group", f"{APP_ID}.desktop",
-             "--key", "_launch", DEFAULT_HOTKEY],
-            check=False)
-        if r.returncode == 0:
-            subprocess.run(["systemctl", "--user", "restart",
-                            "plasma-kglobalaccel.service"], check=False)
+             "--key", "_launch", DEFAULT_HOTKEY])
+        if r and r.returncode == 0:
+            run_cmd(["systemctl", "--user", "restart",
+                     "plasma-kglobalaccel.service"])
             print(f"已註冊全域快捷鍵 {DEFAULT_HOTKEY}(可到 系統設定 → 快捷鍵 修改)")
         else:
             print("找不到 kwriteconfig6,請手動到 系統設定 → 快捷鍵 綁定 deepgram-dictate")
