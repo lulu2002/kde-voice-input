@@ -39,6 +39,7 @@ deepgram-dictate --setup
 |---|---|---|
 | `deepgram` | `api_key` | Deepgram API key(也可用環境變數 `DEEPGRAM_API_KEY`) |
 | `deepgram` | `model` / `language` | 預設 `nova-2` / `zh-TW`;純英文可用 `nova-3` / `en` |
+| `deepgram` | `newline_on_pause` | 講話停頓(一句結束)後自動換行,預設開 |
 | `ui` | `opacity` | 背景不透明度 0.0–1.0,文字不受影響 |
 | `ui` | `show_live_transcript` | `false` 時不即時顯示字幕,只顯示聆聽狀態與音量 |
 | `paste` | `auto_paste` | `true` 時透過 ydotool 自動按 Ctrl+V(見下方注意事項) |

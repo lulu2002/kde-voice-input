@@ -32,6 +32,8 @@ api_key = YOUR_API_KEY_HERE
 ; 中文用 nova-2 + zh-TW;純英文可改 model = nova-3, language = en
 model = nova-2
 language = zh-TW
+; 講話停頓(Deepgram 判定一句結束)後自動換行
+newline_on_pause = true
 
 [ui]
 ; 背景不透明度 0.0-1.0(文字不受影響)
@@ -196,14 +198,16 @@ class Bridge(QObject):
 class Transcriber:
     """在背景 thread 跑 asyncio:pw-record 錄音 → Deepgram live WS → 回傳字幕。"""
 
-    def __init__(self, bridge, api_key, model, language):
+    def __init__(self, bridge, api_key, model, language, newline_on_pause=True):
         self.bridge = bridge
         self.api_key = api_key
         self.model = model
         self.language = language
+        self.newline_on_pause = newline_on_pause
         self.loop = None
         self.stop_event = None
-        self.finals = []
+        self.lines = []    # 已因停頓斷行的句子
+        self.finals = []   # 目前這一行已確定的片段
         self.interim = ""
         self.thread = threading.Thread(target=self._run_thread, daemon=True)
 
@@ -217,11 +221,18 @@ class Transcriber:
     def _joiner(self):
         return "" if self.language.lower().startswith(("zh", "ja")) else " "
 
+    def _final_text(self):
+        parts = list(self.lines)
+        if self.finals:
+            parts.append(self._joiner().join(self.finals))
+        return "\n".join(parts)
+
     def _combined(self):
-        parts = [t for t in self.finals if t]
+        cur = [t for t in self.finals if t]
         if self.interim:
-            parts.append(self.interim)
-        return self._joiner().join(parts).strip()
+            cur.append(self.interim)
+        lines = self.lines + ([self._joiner().join(cur)] if cur else [])
+        return "\n".join(lines).strip()
 
     def _run_thread(self):
         try:
@@ -291,10 +302,12 @@ class Transcriber:
                     if text:
                         self.finals.append(text)
                     self.interim = ""
+                    if self.newline_on_pause and data.get("speech_final") and self.finals:
+                        self.lines.append(self._joiner().join(self.finals))
+                        self.finals = []
                 else:
                     self.interim = text
-                self.bridge.transcript.emit(
-                    self._joiner().join(self.finals), self.interim)
+                self.bridge.transcript.emit(self._final_text(), self.interim)
 
         send_task = asyncio.create_task(sender())
         recv_task = asyncio.create_task(receiver())
@@ -382,7 +395,9 @@ class Popup(QWidget):
         self.bridge.level.connect(self.meter.setValue)
         self.bridge.finished.connect(self.on_finished)
         self.bridge.error.connect(self.on_error)
-        self.transcriber = Transcriber(self.bridge, api_key, model, lang)
+        self.transcriber = Transcriber(
+            self.bridge, api_key, model, lang,
+            newline_on_pause=cfg["deepgram"].getboolean("newline_on_pause", fallback=True))
         self.transcriber.start()
 
     def on_transcript(self, final, interim):
@@ -390,7 +405,7 @@ class Popup(QWidget):
             return
         parts = []
         if final:
-            parts.append(html.escape(final))
+            parts.append(html.escape(final).replace("\n", "<br>"))
         if interim:
             parts.append(f'<span style="color:#8a93a0">{html.escape(interim)}</span>')
         joiner = "" if self.cfg["deepgram"]["language"].lower().startswith(("zh", "ja")) else " "
