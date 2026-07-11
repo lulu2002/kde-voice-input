@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax check
+        run: python3 -m py_compile dictate.py
+
+      - name: Install nfpm
+        run: |
+          url=$(curl -s https://api.github.com/repos/goreleaser/nfpm/releases/latest \
+            | grep -o 'https://[^"]*_Linux_x86_64\.tar\.gz' | head -n1)
+          curl -sL "$url" | tar -xz nfpm
+          sudo install -m755 nfpm /usr/local/bin/nfpm
+
+      - name: Semantic release (builds RPM + DEB on new version)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          npm exec --yes
+          --package semantic-release@24
+          --package @semantic-release/exec@7
+          -- semantic-release

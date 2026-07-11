@@ -1,0 +1,41 @@
+name: deepgram-dictate
+arch: all
+platform: linux
+version: ${VERSION}
+section: utils
+maintainer: lulu2002 <lose9749@gmail.com>
+homepage: https://github.com/lulu2002/deepgram-dictate
+license: MIT
+description: |
+  KDE Wayland voice dictation popup powered by Deepgram.
+  Press a global hotkey, speak, press Enter — the transcript
+  lands in your clipboard (or is auto-pasted via ydotool).
+contents:
+  - src: dictate.py
+    dst: /usr/bin/deepgram-dictate
+    file_info:
+      mode: 0755
+  - src: deepgram-dictate.desktop
+    dst: /usr/share/applications/deepgram-dictate.desktop
+scripts:
+  postinstall: packaging/postinstall.sh
+overrides:
+  rpm:
+    depends:
+      - python3
+      - python3-pyside6
+      - python3-websockets
+      - wl-clipboard
+      - pipewire-utils
+    recommends:
+      - ydotool
+  deb:
+    depends:
+      - python3
+      - python3-pyside6.qtwidgets
+      - python3-pyside6.qtnetwork
+      - python3-websockets
+      - wl-clipboard
+      - pipewire-bin
+    recommends:
+      - ydotool

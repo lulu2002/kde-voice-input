@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=語音輸入 (Deepgram)
+Name[en]=Voice Dictation (Deepgram)
+Comment=按快捷鍵啟動語音轉文字,Enter 複製/貼上到目前視窗
+Comment[en]=Hotkey-triggered speech-to-text popup
+Exec=deepgram-dictate
+Icon=audio-input-microphone
+Terminal=false
+Categories=Utility;Accessibility;
+StartupNotify=false
