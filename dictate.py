@@ -313,6 +313,7 @@ class Popup(QWidget):
         super().__init__()
         self.cfg = cfg
         self.finishing = False
+        self.errored = False
 
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -396,11 +397,18 @@ class Popup(QWidget):
         self.text.setText(joiner.join(parts))
 
     def on_error(self, msg):
+        self.errored = True
+        self.finishing = False
         self.text.show()
         self.status.setText("✕ 錯誤")
         self.text.setText(f'<span style="color:#ff5f57">{html.escape(msg)}</span>')
 
     def finish(self):
+        # 錯誤狀態下再收到 toggle/Enter 就直接退出,
+        # 不然卡住的實例會佔著 single-instance socket,吃掉之後所有啟動請求
+        if self.errored:
+            QApplication.quit()
+            return
         if self.finishing:
             return
         self.finishing = True
