@@ -184,14 +184,21 @@ def make_zh_converter(cfg):
             or not shutil.which("opencc")):
         return lambda text: text
 
-    def convert(text):
-        if not text:
-            return text
-        r = run_cmd(["opencc", "-c", table], input=text, capture_output=True, text=True)
+    def opencc(config, text):
+        r = run_cmd(["opencc", "-c", config], input=text, capture_output=True, text=True)
         if not r or r.returncode != 0:
-            return text
+            return None
         out = r.stdout
         return out[:-1] if out.endswith("\n") and not text.endswith("\n") else out
+
+    def convert(text):
+        # 已經是繁體就不要再轉:s2twp 會把繁體的「干擾」改成「幹擾」、「實例」改成「例項」。
+        # 含有繁體專用字(t2s 會改動)就視為繁體
+        if not text or opencc("t2s.json", text) != text:
+            return text
+        out = opencc(table, text)
+        # opencc 一律用「臺」,台灣日常寫法是「台」
+        return text if out is None else out.replace("臺", "台")
 
     return convert
 
