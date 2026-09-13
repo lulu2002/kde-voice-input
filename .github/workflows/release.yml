@@ -23,10 +23,12 @@ jobs:
         run: python3 -m py_compile dictate.py
 
       - name: Install nfpm
+        # 固定版本直接下載:查 releases/latest 的匿名 API 在共用 runner 上常被 rate limit
+        env:
+          NFPM_VERSION: 2.47.0
         run: |
-          url=$(curl -s https://api.github.com/repos/goreleaser/nfpm/releases/latest \
-            | grep -o 'https://[^"]*_Linux_x86_64\.tar\.gz' | head -n1)
-          curl -sL "$url" | tar -xz nfpm
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz" \
+            | tar -xz nfpm
           sudo install -m755 nfpm /usr/local/bin/nfpm
 
       - name: Semantic release (builds RPM + DEB on new version)
