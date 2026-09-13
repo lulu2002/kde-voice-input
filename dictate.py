@@ -469,10 +469,11 @@ class TextSink:
 async def ws_connect(uri, headers=None):
     import websockets
 
+    # 結果收齊才會關連線,不值得讓使用者等伺服器回 close frame(Soniox 要 1 秒多)
     try:
-        return await websockets.connect(uri, additional_headers=headers)
+        return await websockets.connect(uri, additional_headers=headers, close_timeout=0.2)
     except TypeError:  # websockets < 14
-        return await websockets.connect(uri, extra_headers=headers)
+        return await websockets.connect(uri, extra_headers=headers, close_timeout=0.2)
 
 
 async def run_streaming(ws, audio, end_of_stream, receiver):
@@ -595,6 +596,9 @@ class SonioxProvider(Provider):
                 final, interim = [], []
                 for tok in data.get("tokens", []):
                     text = tok.get("text", "")
+                    if text == "<fin>":  # finalize 完成,剩下的字都已確定
+                        sink.update("".join(final), "")
+                        return
                     if text == "<end>":
                         sink.update("".join(final), "")
                         final = []
@@ -607,7 +611,9 @@ class SonioxProvider(Provider):
                 if data.get("finished"):
                     return
 
-        await run_streaming(ws, audio, b"", receiver)
+        # 不用空 frame 收尾:那樣伺服器要約 20 秒才送 finished;
+        # finalize 會在 0.3 秒內把待定的字確定並回 <fin>
+        await run_streaming(ws, audio, json.dumps({"type": "finalize"}), receiver)
 
 
 def pcm_to_wav(pcm):
