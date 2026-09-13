@@ -1,4 +1,4 @@
-name: deepgram-dictate
+name: kde-voice-input
 arch: all
 platform: linux
 version: ${VERSION}
@@ -7,16 +7,21 @@ maintainer: lulu2002 <lose9749@gmail.com>
 homepage: https://github.com/lulu2002/kde-voice-input
 license: MIT
 description: |
-  KDE Wayland voice dictation popup powered by Deepgram.
+  KDE Wayland voice dictation popup (Deepgram / Soniox / OpenAI).
   Press a global hotkey, speak, press Enter — the transcript
   lands in your clipboard (or is auto-pasted via ydotool).
 contents:
   - src: dictate.py
-    dst: /usr/bin/deepgram-dictate
+    dst: /usr/bin/kde-voice-input
     file_info:
       mode: 0755
-  - src: deepgram-dictate.desktop
-    dst: /usr/share/applications/deepgram-dictate.desktop
+  - src: kde-voice-input.desktop
+    dst: /usr/share/applications/kde-voice-input.desktop
+# 舊套件名稱,升級時自動取代
+replaces:
+  - deepgram-dictate
+conflicts:
+  - deepgram-dictate
 scripts:
   postinstall: packaging/postinstall.sh
 overrides:
@@ -29,6 +34,9 @@ overrides:
       - pipewire-utils
     recommends:
       - ydotool
+      - playerctl
+      - wireplumber
+      - opencc-tools
   deb:
     depends:
       - python3
@@ -39,3 +47,6 @@ overrides:
       - pipewire-bin
     recommends:
       - ydotool
+      - playerctl
+      - wireplumber
+      - opencc
