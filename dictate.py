@@ -48,7 +48,10 @@ CONFIG_TEMPLATE = """\
 provider = deepgram
 ; 語言(BCP-47),例如 zh-TW、en;soniox / openai 會自動再加上英文提示
 language = zh-TW
-; 常講的專有名詞,逗號分隔,提示辨識模型(deepgram 僅 nova-3 支援)
+; 常講的專有名詞,提示辨識模型(deepgram 僅 nova-3 支援)。逗號分隔,或換行縮排一行一個:
+;   keywords =
+;       ItemsAdder, Nexo
+;       BetterHud
 keywords =
 ; 講話停頓(一句結束)後自動換行(僅串流 provider)
 newline_on_pause = true
@@ -515,7 +518,8 @@ class Provider:
         self.cfg = cfg
         self.api_key = key
         self.language = cfg["general"]["language"].strip()
-        self.keywords = [k.strip() for k in cfg["general"]["keywords"].split(",") if k.strip()]
+        raw = cfg["general"]["keywords"].replace("\n", ",")
+        self.keywords = list(dict.fromkeys(k.strip() for k in raw.split(",") if k.strip()))
 
     @property
     def joiner(self):

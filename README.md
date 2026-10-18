@@ -65,7 +65,7 @@ kde-voice-input --compare clip*.wav
 |---|---|---|
 | `general` | `provider` | `deepgram` / `soniox` / `openai` |
 | `general` | `language` | BCP-47,預設 `zh-TW`;soniox / openai 會自動加英文提示 |
-| `general` | `keywords` | 常講的專有名詞(逗號分隔),提示辨識模型 |
+| `general` | `keywords` | 常講的專有名詞(逗號分隔或一行一個),提示辨識模型;實測可大幅改善英文專有名詞 |
 | `general` | `newline_on_pause` | 講話停頓(一句結束)後自動換行,預設開(僅串流 provider) |
 | `general` | `traditional_chinese` | `zh-TW`/`zh-HK` 時用 opencc 轉成當地繁體用語(需安裝 opencc) |
 | `deepgram` / `soniox` / `openai` | `api_key`、`model` | 各服務的 key 與模型;key 也可用環境變數 `DEEPGRAM_API_KEY` 等 |
