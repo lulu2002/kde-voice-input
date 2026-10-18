@@ -15,6 +15,7 @@ import html
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -78,6 +79,8 @@ prompt =
 [focus]
 ; 錄音時暫停正在播放的音樂/影片(需要 playerctl),結束後恢復
 pause_media = true
+; 錄音時把耳機/喇叭(預設輸出裝置)靜音,所有聲音都先不播,結束後恢復(需要 wpctl)
+mute_output = true
 ; 錄音時把這些 app 的麥克風串流靜音(比對程式名稱,逗號分隔,留空不靜音),結束後恢復
 mute_mic_apps = legcord, discord, vesktop
 
@@ -244,31 +247,48 @@ def is_muted(node_id):
     return r is None or r.returncode != 0 or "[MUTED]" in r.stdout
 
 
+def sink_info(target):
+    """輸出裝置的 (node id, node.name);target 可以是 node id 或 @DEFAULT_AUDIO_SINK@。"""
+    r = run_cmd(["wpctl", "inspect", str(target)], capture_output=True, text=True)
+    if not r or r.returncode != 0:
+        return None
+    node_id = re.match(r"id (\d+),", r.stdout)
+    name = re.search(r'node\.name = "([^"]*)"', r.stdout)
+    return (int(node_id.group(1)), name.group(1)) if node_id and name else None
+
+
 class FocusGuard:
-    """錄音期間暫停媒體、靜音其他 app(例如 Discord)的麥克風,結束後只恢復自己動過的東西。
+    """錄音期間暫停媒體、靜音輸出裝置與其他 app(例如 Discord)的麥克風,結束後只恢復自己動過的東西。
 
     狀態寫在 XDG_RUNTIME_DIR:程式若被砍掉沒機會恢復,下次啟動時由 recover() 補做。
     """
 
     def __init__(self, cfg):
         self.pause_media = cfg["focus"].getboolean("pause_media", fallback=True)
+        self.mute_output = cfg["focus"].getboolean("mute_output", fallback=True)
         self.mute_apps = [a.strip().lower() for a in cfg["focus"]["mute_mic_apps"].split(",")
                           if a.strip()]
         self.state = None
 
     def engage(self):
-        state = {"players": [], "streams": [], "apps": self.mute_apps}
+        state = {"players": [], "streams": [], "apps": self.mute_apps, "sink": None}
         if self.pause_media:
             for player in playing_players():
                 run_cmd(["playerctl", "-p", player, "pause"])
                 state["players"].append(player)
+        if self.mute_output:
+            # 靜音整個輸出裝置而不是逐條串流:錄音中途才開始播的聲音(通知、Discord 有人講話)也擋得住
+            sink = sink_info("@DEFAULT_AUDIO_SINK@")
+            if sink and not is_muted(sink[0]):
+                run_cmd(["wpctl", "set-mute", str(sink[0]), "1"])
+                state["sink"] = list(sink)
         if self.mute_apps:
             for node_id in mic_streams(self.mute_apps):
                 if not is_muted(node_id):
                     run_cmd(["wpctl", "set-mute", str(node_id), "1"])
                     state["streams"].append(node_id)
         self.state = state
-        if state["players"] or state["streams"]:
+        if state["players"] or state["streams"] or state["sink"]:
             FOCUS_STATE_PATH.write_text(json.dumps(state), encoding="utf-8")
 
     def release(self):
@@ -288,6 +308,12 @@ class FocusGuard:
 
     @staticmethod
     def _restore(state):
+        if state.get("sink"):
+            node_id, name = state["sink"]
+            # 錄音中途換了耳機,或 node id 被回收給別的裝置:名稱對得上才解除
+            current = sink_info(node_id)
+            if current and current[1] == name:
+                run_cmd(["wpctl", "set-mute", str(node_id), "0"])
         for player in state.get("players", []):
             r = run_cmd(["playerctl", "-p", player, "status"], capture_output=True, text=True)
             # 使用者在錄音期間自己換成 Stopped 或關掉播放器就不要亂播
@@ -417,10 +443,11 @@ def setup():
     register_kwin_rule()
     if cfg["general"]["language"].strip().lower() in ("zh-tw", "zh-hk") and not shutil.which("opencc"):
         print("提示:安裝 opencc(Fedora: opencc-tools)可確保中文輸出為繁體")
-    if cfg["focus"]["mute_mic_apps"].strip() or cfg["focus"].getboolean("pause_media"):
+    if (cfg["focus"]["mute_mic_apps"].strip() or cfg["focus"].getboolean("pause_media")
+            or cfg["focus"].getboolean("mute_output", fallback=True)):
         missing = [t for t in ("playerctl", "pw-dump", "wpctl") if not shutil.which(t)]
         if missing:
-            print(f"提示:錄音時暫停音樂/靜音其他 app 需要:{', '.join(missing)}")
+            print(f"提示:錄音時暫停音樂/靜音輸出與其他 app 需要:{', '.join(missing)}")
     print("完成。按快捷鍵開始語音輸入;Enter 結束並複製,Esc 取消。")
     print(f"切換辨識服務、字幕顯示、自動貼上等選項見:{CONFIG_PATH}")
     return 0

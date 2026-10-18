@@ -6,7 +6,7 @@ KDE Wayland 語音輸入工具,可選 [Deepgram](https://deepgram.com)、[Soniox
 按全域快捷鍵(預設 `Meta+H`)→ 跳出聆聽 popup → 講話 →
 按 **Enter**(或再按一次快捷鍵)→ 文字進剪貼簿,`Ctrl+V` 貼到任何視窗。`Esc` 取消。
 
-錄音期間會自動暫停正在播放的音樂、把 Discord 等 app 的麥克風靜音,結束後恢復。
+錄音期間會自動暫停正在播放的音樂、把耳機/喇叭靜音(所有聲音都先不播)、把 Discord 等 app 的麥克風靜音,結束後恢復。
 
 ## 安裝
 
@@ -71,6 +71,7 @@ kde-voice-input --compare clip*.wav
 | `deepgram` / `soniox` / `openai` | `api_key`、`model` | 各服務的 key 與模型;key 也可用環境變數 `DEEPGRAM_API_KEY` 等 |
 | `openai` | `prompt` | 描述你通常在講什麼,幫助模型判斷用詞 |
 | `focus` | `pause_media` | 錄音時暫停正在播放的媒體(MPRIS,需要 `playerctl`) |
+| `focus` | `mute_output` | 錄音時靜音預設輸出裝置(耳機/喇叭),瀏覽器、遊戲、Discord 語音等所有聲音都先不播,預設開(需要 `wpctl`) |
 | `focus` | `mute_mic_apps` | 錄音時靜音這些 app 的麥克風串流(比對程式名稱),預設 `legcord, discord, vesktop` |
 | `ui` | `opacity` | 背景不透明度 0.0–1.0,文字不受影響 |
 | `ui` | `show_live_transcript` | `false` 時不即時顯示字幕,只顯示聆聽狀態與音量 |
